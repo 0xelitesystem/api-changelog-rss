@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Changelog Diff</title>
+<meta name="description" content="Paste two OpenAPI specs and see what changed: added endpoints, removed endpoints, modified parameters, breaking changes. Browser-only.">
+<meta name="ai.description" content="Single-file HTML tool that diffs two OpenAPI specs (JSON or YAML) to identify what changed between versions: added paths, removed paths, modified parameters, modified responses, and breaking changes (removed required params, removed response fields, changed types). Useful for generating change summaries for API consumers. Browser-only, no server, no third-party scripts. Light and dark themes.">
+<meta property="og:title" content="API Changelog Diff">
+<meta property="og:description" content="Diff two OpenAPI specs in the browser.">
+<style>
+:root {
+  --bg: #fbfaf6;
+  --surface: #ffffff;
+  --surface-2: #f0eee5;
+  --ink: #0d0d0d;
+  --ink-soft: #5a5a5a;
+  --rule: #d4d2c8;
+  --rule-strong: #0d0d0d;
+  --accent: #94181c;
+  --accent-soft: #f5dadb;
+  --serif: "Iowan Old Style", "Charter", "Georgia", "Times New Roman", serif;
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --added: #1f6f43;
+  --added-soft: #d6efe0;
+  --removed: #94181c;
+  --removed-soft: #f5dadb;
+  --changed: #8a4a00;
+  --changed-soft: #f5e4c8;
+  --break: #5a0709;
+  --break-soft: #fbe9e7;
+}
+[data-theme="dark"] {
+  --bg: #0e0e0c;
+  --surface: #1a1a18;
+  --surface-2: #14140f;
+  --ink: #f5f3ed;
+  --ink-soft: #aaa6a0;
+  --rule: #2e2c28;
+  --rule-strong: #f5f3ed;
+  --accent: #ff7a78;
+  --accent-soft: #4a1a1c;
+  --added: #7fc99c;
+  --added-soft: #1a3325;
+  --removed: #ff7a78;
+  --removed-soft: #4a1a1c;
+  --changed: #e6a960;
+  --changed-soft: #3a2a14;
+  --break: #ff5a55;
+  --break-soft: #4a1414;
+}
+[data-theme="dark"] button.primary, [data-theme="dark"] a.primary { color: var(--bg) !important; }
+[data-theme="dark"] button.primary, [data-theme="dark"] a.primary { border-color: var(--accent) !important; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+body { font-family: var(--sans); background: var(--bg); color: var(--ink); line-height: 1.55; font-size: 14px; min-height: 100vh; }
+
+.skip-link { position: absolute; left: -9999px; top: 0; background: var(--accent); color: #fff; padding: 0.5rem 1rem; z-index: 100; font-weight: 600; }
+.skip-link:focus { left: 1rem; top: 1rem; }
+
+.layout { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+/* Newspaper masthead */
+header { padding-bottom: 1rem; border-bottom: 4px double var(--rule-strong); margin-bottom: 1.5rem; }
+.masthead { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: end; }
+.brand { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 0.4rem; font-weight: 600; }
+h1 { font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -0.025em; line-height: 0.95; }
+h1 .accent { color: var(--accent); font-style: italic; }
+.subtitle { margin-top: 0.5rem; color: var(--ink-soft); font-size: 0.9375rem; max-width: 580px; line-height: 1.5; }
+.dateline { display: flex; gap: 1.25rem; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); font-weight: 600; }
+
+.theme-toggle { background: var(--surface); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: 3px; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.06em; display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; font-family: var(--sans); }
+.theme-toggle:hover { background: var(--ink); color: var(--bg); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle svg { width: 14px; height: 14px; }
+
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 760px) { .input-grid { grid-template-columns: 1fr; } }
+
+.input-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 1rem; }
+.input-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.5rem; }
+.input-label { font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+.input-help { font-size: 0.75rem; color: var(--ink-soft); }
+textarea { width: 100%; background: var(--surface-2); color: var(--ink); border: 1px solid var(--rule); border-radius: 3px; padding: 0.625rem 0.75rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.5; min-height: 200px; resize: vertical; }
+textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+.row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+button.primary, button.secondary { font: inherit; font-family: var(--sans); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.55rem 1rem; border-radius: 3px; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+button.primary:hover { filter: brightness(0.92); }
+button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--rule-strong); }
+button.secondary:hover { background: var(--ink); color: var(--bg); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#status { font-family: var(--mono); font-size: 0.75rem; padding: 0.4rem 0.625rem; border-radius: 3px; display: inline-block; }
+#status.err { background: var(--removed-soft); color: var(--removed); border: 1px solid var(--removed); }
+#status.ok { background: var(--added-soft); color: var(--added); border: 1px solid var(--added); }
+
+/* Report */
+.report { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 1.25rem 1.5rem; }
+.report-head { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; padding-bottom: 0.75rem; border-bottom: 1px solid var(--rule); margin-bottom: 1rem; }
+.report-head h2 { font-family: var(--serif); font-size: 1.5rem; font-weight: 700; flex: 1; }
+.summary-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.pill { font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid; }
+.pill.added { background: var(--added-soft); color: var(--added); border-color: var(--added); }
+.pill.removed { background: var(--removed-soft); color: var(--removed); border-color: var(--removed); }
+.pill.changed { background: var(--changed-soft); color: var(--changed); border-color: var(--changed); }
+.pill.break { background: var(--break-soft); color: var(--break); border-color: var(--break); font-weight: 800; }
+
+.section { margin-top: 1.25rem; }
+.section h3 { font-family: var(--mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--rule); }
+.section h3.added { color: var(--added); }
+.section h3.removed { color: var(--removed); }
+.section h3.changed { color: var(--changed); }
+.section h3.break { color: var(--break); }
+.entry { padding: 0.5rem 0.625rem; margin-bottom: 0.4rem; background: var(--surface-2); border-radius: 3px; border: 1px solid var(--rule); font-size: 0.8125rem; line-height: 1.5; }
+.entry .method { font-family: var(--mono); font-weight: 700; font-size: 0.6875rem; padding: 0.15rem 0.4rem; border-radius: 2px; margin-right: 0.4rem; text-transform: uppercase; }
+.method.GET { background: #d6efe0; color: #1f6f43; }
+.method.POST { background: #f5e4c8; color: #8a4a00; }
+.method.PUT, .method.PATCH { background: #cfe2f3; color: #1a4d8c; }
+.method.DELETE { background: #f5dadb; color: #94181c; }
+[data-theme="dark"] .method.GET { background: #1a3325; color: #7fc99c; }
+[data-theme="dark"] .method.POST { background: #3a2a14; color: #e6a960; }
+[data-theme="dark"] .method.PUT, [data-theme="dark"] .method.PATCH { background: #1a2a3d; color: #6b9fd9; }
+[data-theme="dark"] .method.DELETE { background: #4a1a1c; color: #ff7a78; }
+.entry .path { font-family: var(--mono); font-size: 0.8125rem; color: var(--ink); font-weight: 600; }
+.entry .detail { color: var(--ink-soft); margin-top: 0.25rem; font-size: 0.75rem; }
+.entry .detail code { background: var(--surface); padding: 0.05rem 0.25rem; border-radius: 2px; font-size: 0.6875rem; }
+.empty { padding: 0.875rem; text-align: center; color: var(--ink-soft); font-style: italic; font-size: 0.875rem; background: var(--surface-2); border-radius: 3px; }
+
+.export-row { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+#markdown-output { display: none; margin-top: 0.75rem; }
+#markdown-output textarea { background: var(--surface-2); min-height: 240px; font-size: 0.75rem; }
+
+footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); font-size: 0.75rem; color: var(--ink-soft); line-height: 1.7; }
+footer a { color: var(--ink-soft); text-decoration: underline; text-underline-offset: 2px; }
+footer a:hover { color: var(--accent); }
+
+@media (max-width: 540px) {
+  .layout { padding: 1.5rem 1rem 3rem; }
+  h1 { font-size: 1.75rem; }
+  .masthead { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body data-theme="light">
+<a href="#main" class="skip-link">Skip to main content</a>
+<div class="layout">
+
+  <header>
+    <div class="masthead">
+      <div>
+        <div class="brand">API CHANGELOG // DIFF</div>
+        <h1>The <span class="accent">Diff.</span></h1>
+        <p class="subtitle">Paste two OpenAPI specs. Get a structured changelog: added, removed, changed, breaking. Export as Markdown.</p>
+        <div class="dateline">
+          <span>Edition: 2026</span>
+          <span>JSON or YAML</span>
+          <span>Browser only</span>
+        </div>
+      </div>
+      <button type="button" class="theme-toggle" id="theme-btn" aria-label="Toggle dark theme" aria-pressed="false">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+        <span id="theme-label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <div class="input-grid">
+      <div class="input-card">
+        <div class="input-card-head">
+          <span class="input-label">Old Spec</span>
+          <span class="input-help">v1, base, "before"</span>
+        </div>
+        <textarea id="old-spec" spellcheck="false" placeholder="Paste OpenAPI 3.x JSON or YAML..."></textarea>
+      </div>
+      <div class="input-card">
+        <div class="input-card-head">
+          <span class="input-label">New Spec</span>
+          <span class="input-help">v2, latest, "after"</span>
+        </div>
+        <textarea id="new-spec" spellcheck="false" placeholder="Paste OpenAPI 3.x JSON or YAML..."></textarea>
+      </div>
+    </div>
+
+    <div class="row">
+      <button type="button" class="primary" id="diff-btn">Generate diff</button>
+      <button type="button" class="secondary" id="sample-btn">Load sample</button>
+      <button type="button" class="secondary" id="clear-btn">Clear</button>
+      <span id="status"></span>
+    </div>
+
+    <div id="report-container"></div>
+
+  </main>
+
+  <footer>
+    <p>Source: <a href="https://github.com/0xelitesystem/api-changelog-rss" target="_blank" rel="noopener">github.com/0xelitesystem/api-changelog-rss</a></p>
+    <p>Related: <a href="https://github.com/0xelitesystem/json-to-typescript" target="_blank" rel="noopener">json-to-typescript</a> &middot; <a href="https://github.com/0xelitesystem/csv-to-anything" target="_blank" rel="noopener">csv-to-anything</a> &middot; <a href="https://github.com/0xelitesystem/webhook-inspector" target="_blank" rel="noopener">webhook-inspector</a></p>
+    <p>Handles OpenAPI 3.x. JSON parses natively; YAML uses a small bundled parser supporting common subset (mappings, sequences, scalars, multi-line strings). For complex YAML with anchors or merge keys, convert to JSON first.</p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// =============================================================================
+// Minimal YAML parser (handles common OpenAPI subset, no anchors/merge)
+// =============================================================================
+function parseYaml(text) {
+  const lines = text.split(/\r?\n/);
+  let i = 0;
+
+  function readScalar(s) {
+    s = s.trim();
+    if (s === "" || s === "~" || s === "null") return null;
+    if (s === "true") return true;
+    if (s === "false") return false;
+    if (/^-?\d+$/.test(s)) return parseInt(s, 10);
+    if (/^-?\d+\.\d+$/.test(s)) return parseFloat(s);
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      return s.slice(1, -1);
+    }
+    return s;
+  }
+
+  function indent(line) {
+    let n = 0;
+    while (n < line.length && line[n] === " ") n++;
+    return n;
+  }
+
+  function parseBlock(baseIndent) {
+    const result = {};
+    let arr = null;
+
+    while (i < lines.length) {
+      const raw = lines[i];
+      // Skip blank or comment
+      if (/^\s*$/.test(raw) || /^\s*#/.test(raw)) { i++; continue; }
+      const ind = indent(raw);
+      if (ind < baseIndent) break;
+      if (ind > baseIndent) { i++; continue; } // shouldn't happen at this level
+
+      const line = raw.slice(ind);
+
+      // Sequence item
+      if (line.startsWith("- ") || line === "-") {
+        if (arr === null) arr = [];
+        const rest = line.slice(2);
+        if (rest === "" || rest === undefined) {
+          i++;
+          arr.push(parseBlock(baseIndent + 2));
+        } else if (rest.includes(": ") || rest.endsWith(":")) {
+          // First key of a nested object on the same line as -
+          // Convert "- key: value" into a nested object
+          i++;
+          const m = rest.match(/^([^:]+):\s*(.*)$/);
+          if (m) {
+            const key = m[1].trim();
+            const val = m[2].trim();
+            const obj = {};
+            if (val) obj[key] = readScalar(val);
+            else { obj[key] = parseBlock(baseIndent + 2); }
+            // Continue parsing more keys at the same indent + 2
+            while (i < lines.length) {
+              const r2 = lines[i];
+              if (/^\s*$/.test(r2) || /^\s*#/.test(r2)) { i++; continue; }
+              const ind2 = indent(r2);
+              if (ind2 !== baseIndent + 2) break;
+              const l2 = r2.slice(ind2);
+              const m2 = l2.match(/^([^:]+):\s*(.*)$/);
+              if (!m2) break;
+              const k2 = m2[1].trim();
+              const v2 = m2[2].trim();
+              i++;
+              if (v2) obj[k2] = readScalar(v2);
+              else obj[k2] = parseBlock(baseIndent + 4);
+            }
+            arr.push(obj);
+          }
+        } else {
+          i++;
+          arr.push(readScalar(rest));
+        }
+        continue;
+      }
+
+      // Key: value
+      const m = line.match(/^([^:]+):\s*(.*)$/);
+      if (!m) { i++; continue; }
+      const key = m[1].trim();
+      const val = m[2].trim();
+      i++;
+      if (val === "" || val === "|" || val === ">") {
+        result[key] = parseBlock(baseIndent + 2);
+      } else {
+        result[key] = readScalar(val);
+      }
+    }
+
+    return arr !== null ? arr : result;
+  }
+
+  return parseBlock(0);
+}
+
+function parseSpec(text) {
+  text = text.trim();
+  if (!text) throw new Error("Empty");
+  // Try JSON first
+  try { return JSON.parse(text); } catch {}
+  // Try YAML
+  try { return parseYaml(text); } catch (e) { throw new Error("Could not parse as JSON or YAML"); }
+}
+
+// =============================================================================
+// Diff logic
+// =============================================================================
+function diffSpecs(oldS, newS) {
+  const result = {
+    added: [],
+    removed: [],
+    changed: [],
+    breaking: [],
+    info: { oldVersion: oldS && oldS.info && oldS.info.version, newVersion: newS && newS.info && newS.info.version, oldTitle: oldS && oldS.info && oldS.info.title, newTitle: newS && newS.info && newS.info.title }
+  };
+
+  const oldPaths = (oldS && oldS.paths) || {};
+  const newPaths = (newS && newS.paths) || {};
+  const allPathKeys = new Set([...Object.keys(oldPaths), ...Object.keys(newPaths)]);
+  const methods = ["get", "post", "put", "patch", "delete", "head", "options"];
+
+  for (const path of [...allPathKeys].sort()) {
+    const oldOps = oldPaths[path] || {};
+    const newOps = newPaths[path] || {};
+
+    for (const method of methods) {
+      const oldOp = oldOps[method];
+      const newOp = newOps[method];
+
+      if (!oldOp && newOp) {
+        result.added.push({
+          method: method.toUpperCase(),
+          path,
+          summary: newOp.summary || ""
+        });
+        continue;
+      }
+      if (oldOp && !newOp) {
+        result.removed.push({
+          method: method.toUpperCase(),
+          path,
+          summary: oldOp.summary || ""
+        });
+        // Removing an endpoint is a breaking change
+        result.breaking.push({
+          method: method.toUpperCase(),
+          path,
+          kind: "endpoint removed",
+          detail: "Clients calling this endpoint will receive 404."
+        });
+        continue;
+      }
+      if (oldOp && newOp) {
+        // Compare params
+        const paramChanges = diffParams(oldOp.parameters || [], newOp.parameters || []);
+        // Compare request body
+        const bodyChanges = diffRequestBody(oldOp.requestBody, newOp.requestBody);
+        // Compare responses
+        const responseChanges = diffResponses(oldOp.responses || {}, newOp.responses || {});
+
+        if (paramChanges.length || bodyChanges.length || responseChanges.length) {
+          const allDetails = [...paramChanges, ...bodyChanges, ...responseChanges];
+          result.changed.push({
+            method: method.toUpperCase(),
+            path,
+            summary: newOp.summary || "",
+            details: allDetails
+          });
+          // Identify breaking subset
+          for (const d of allDetails) {
+            if (d.breaking) {
+              result.breaking.push({
+                method: method.toUpperCase(),
+                path,
+                kind: d.kind,
+                detail: d.text
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function diffParams(oldP, newP) {
+  const changes = [];
+  const oldByKey = Object.fromEntries(oldP.map(p => [`${p.in}:${p.name}`, p]));
+  const newByKey = Object.fromEntries(newP.map(p => [`${p.in}:${p.name}`, p]));
+  const allKeys = new Set([...Object.keys(oldByKey), ...Object.keys(newByKey)]);
+
+  for (const k of allKeys) {
+    const o = oldByKey[k];
+    const n = newByKey[k];
+    const [where, name] = k.split(":");
+    if (!o && n) {
+      const isRequired = n.required === true;
+      changes.push({
+        kind: "param added",
+        text: `Added ${where} param <code>${escapeHtml(name)}</code>${isRequired ? " (required)" : " (optional)"}`,
+        breaking: isRequired
+      });
+    } else if (o && !n) {
+      changes.push({
+        kind: "param removed",
+        text: `Removed ${where} param <code>${escapeHtml(name)}</code>`,
+        breaking: true
+      });
+    } else if (o && n) {
+      if (o.required !== true && n.required === true) {
+        changes.push({
+          kind: "param tightened",
+          text: `${where} param <code>${escapeHtml(name)}</code> is now required`,
+          breaking: true
+        });
+      }
+      const oType = (o.schema && o.schema.type) || "";
+      const nType = (n.schema && n.schema.type) || "";
+      if (oType && nType && oType !== nType) {
+        changes.push({
+          kind: "param type changed",
+          text: `${where} param <code>${escapeHtml(name)}</code> type: <code>${escapeHtml(oType)}</code> → <code>${escapeHtml(nType)}</code>`,
+          breaking: true
+        });
+      }
+    }
+  }
+  return changes;
+}
+
+function diffRequestBody(oldB, newB) {
+  const changes = [];
+  if (!oldB && newB) {
+    changes.push({
+      kind: "body added",
+      text: `Request body added${newB.required ? " (required)" : ""}`,
+      breaking: !!newB.required
+    });
+  } else if (oldB && !newB) {
+    changes.push({ kind: "body removed", text: "Request body removed", breaking: false });
+  } else if (oldB && newB && !oldB.required && newB.required) {
+    changes.push({ kind: "body required", text: "Request body is now required", breaking: true });
+  }
+  return changes;
+}
+
+function diffResponses(oldR, newR) {
+  const changes = [];
+  const codes = new Set([...Object.keys(oldR), ...Object.keys(newR)]);
+  for (const code of codes) {
+    const o = oldR[code];
+    const n = newR[code];
+    if (!o && n) {
+      changes.push({ kind: "response added", text: `Added response <code>${escapeHtml(code)}</code>`, breaking: false });
+    } else if (o && !n) {
+      changes.push({
+        kind: "response removed",
+        text: `Removed response <code>${escapeHtml(code)}</code>`,
+        breaking: code.startsWith("2") || code === "default"
+      });
+    }
+  }
+  return changes;
+}
+
+// =============================================================================
+// Render
+// =============================================================================
+function renderReport(diff) {
+  const c = $("report-container");
+  const total = diff.added.length + diff.removed.length + diff.changed.length;
+  if (total === 0) {
+    c.innerHTML = `<div class="report"><div class="empty">No structural changes between the two specs.</div></div>`;
+    return;
+  }
+
+  let html = `<div class="report">
+    <div class="report-head">
+      <h2>Changelog</h2>
+      <div class="summary-pills">
+        ${diff.added.length ? `<span class="pill added">+${diff.added.length} ADDED</span>` : ""}
+        ${diff.removed.length ? `<span class="pill removed">-${diff.removed.length} REMOVED</span>` : ""}
+        ${diff.changed.length ? `<span class="pill changed">~${diff.changed.length} CHANGED</span>` : ""}
+        ${diff.breaking.length ? `<span class="pill break">${diff.breaking.length} BREAKING</span>` : ""}
+      </div>
+    </div>`;
+
+  if (diff.info.oldVersion || diff.info.newVersion) {
+    html += `<p style="font-size: 0.875rem; color: var(--ink-soft); margin-bottom: 1rem;">
+      ${escapeHtml(diff.info.oldTitle || "API")} <code>v${escapeHtml(diff.info.oldVersion || "?")}</code> &rarr; <code>v${escapeHtml(diff.info.newVersion || "?")}</code>
+    </p>`;
+  }
+
+  // Breaking
+  if (diff.breaking.length) {
+    html += `<div class="section"><h3 class="break">Breaking changes</h3>`;
+    for (const b of diff.breaking) {
+      html += `<div class="entry"><span class="method ${escapeHtml(b.method)}">${escapeHtml(b.method)}</span><span class="path">${escapeHtml(b.path)}</span><div class="detail">${b.detail}</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (diff.added.length) {
+    html += `<div class="section"><h3 class="added">Added (${diff.added.length})</h3>`;
+    for (const a of diff.added) {
+      html += `<div class="entry"><span class="method ${escapeHtml(a.method)}">${escapeHtml(a.method)}</span><span class="path">${escapeHtml(a.path)}</span>${a.summary ? `<div class="detail">${escapeHtml(a.summary)}</div>` : ""}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (diff.removed.length) {
+    html += `<div class="section"><h3 class="removed">Removed (${diff.removed.length})</h3>`;
+    for (const r of diff.removed) {
+      html += `<div class="entry"><span class="method ${escapeHtml(r.method)}">${escapeHtml(r.method)}</span><span class="path">${escapeHtml(r.path)}</span>${r.summary ? `<div class="detail">${escapeHtml(r.summary)}</div>` : ""}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (diff.changed.length) {
+    html += `<div class="section"><h3 class="changed">Changed (${diff.changed.length})</h3>`;
+    for (const ch of diff.changed) {
+      html += `<div class="entry"><span class="method ${escapeHtml(ch.method)}">${escapeHtml(ch.method)}</span><span class="path">${escapeHtml(ch.path)}</span>`;
+      for (const d of ch.details) {
+        html += `<div class="detail">${d.breaking ? '<b style="color:var(--break);">BREAKING:</b> ' : ''}${d.text}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Export
+  html += `<div class="export-row">
+    <button type="button" class="primary" id="export-md-btn">Export as Markdown</button>
+    <button type="button" class="secondary" id="copy-md-btn" style="display: none;">Copy markdown</button>
+    <span id="export-status" style="font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft);"></span>
+  </div>
+  <div id="markdown-output"><textarea id="markdown-textarea" spellcheck="false" readonly></textarea></div>
+  </div>`;
+
+  c.innerHTML = html;
+
+  $("export-md-btn").addEventListener("click", () => {
+    const md = renderMarkdown(diff);
+    $("markdown-textarea").value = md;
+    $("markdown-output").style.display = "block";
+    $("copy-md-btn").style.display = "inline-flex";
+    $("markdown-textarea").select();
+  });
+  $("copy-md-btn").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("markdown-textarea").value);
+      $("export-status").textContent = "Copied.";
+    } catch {
+      $("export-status").textContent = "Clipboard blocked. Select manually.";
+    }
+  });
+}
+
+function renderMarkdown(diff) {
+  const lines = [];
+  const oldV = diff.info.oldVersion || "?";
+  const newV = diff.info.newVersion || "?";
+  const title = diff.info.newTitle || diff.info.oldTitle || "API";
+  lines.push(`# ${title} Changelog: v${oldV} to v${newV}`, "");
+  if (diff.breaking.length) {
+    lines.push("## Breaking changes", "");
+    for (const b of diff.breaking) {
+      lines.push(`- \`${b.method} ${b.path}\` ${stripHtml(b.detail)}`);
+    }
+    lines.push("");
+  }
+  if (diff.added.length) {
+    lines.push(`## Added (${diff.added.length})`, "");
+    for (const a of diff.added) lines.push(`- \`${a.method} ${a.path}\`${a.summary ? " " + a.summary : ""}`);
+    lines.push("");
+  }
+  if (diff.removed.length) {
+    lines.push(`## Removed (${diff.removed.length})`, "");
+    for (const r of diff.removed) lines.push(`- \`${r.method} ${r.path}\`${r.summary ? " " + r.summary : ""}`);
+    lines.push("");
+  }
+  if (diff.changed.length) {
+    lines.push(`## Changed (${diff.changed.length})`, "");
+    for (const ch of diff.changed) {
+      lines.push(`- \`${ch.method} ${ch.path}\``);
+      for (const d of ch.details) {
+        lines.push(`  - ${d.breaking ? "**BREAKING:** " : ""}${stripHtml(d.text)}`);
+      }
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function stripHtml(s) {
+  return String(s).replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
+// =============================================================================
+// Sample data
+// =============================================================================
+const SAMPLE_OLD = `{
+  "openapi": "3.0.0",
+  "info": { "title": "Pet Store", "version": "1.0.0" },
+  "paths": {
+    "/pets": {
+      "get": {
+        "summary": "List all pets",
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create a pet",
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "summary": "Get a pet",
+        "parameters": [
+          { "name": "petId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } }
+      }
+    }
+  }
+}`;
+
+const SAMPLE_NEW = `{
+  "openapi": "3.0.0",
+  "info": { "title": "Pet Store", "version": "2.0.0" },
+  "paths": {
+    "/pets": {
+      "get": {
+        "summary": "List all pets",
+        "parameters": [
+          { "name": "limit", "in": "query", "required": true, "schema": { "type": "integer" } },
+          { "name": "tag", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "summary": "Get a pet",
+        "parameters": [
+          { "name": "petId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } }
+      },
+      "delete": {
+        "summary": "Delete a pet",
+        "parameters": [
+          { "name": "petId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/owners": {
+      "get": {
+        "summary": "List all owners",
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}`;
+
+// =============================================================================
+// Wiring
+// =============================================================================
+$("diff-btn").addEventListener("click", () => {
+  const oldText = $("old-spec").value;
+  const newText = $("new-spec").value;
+  if (!oldText.trim() || !newText.trim()) {
+    $("status").className = "err";
+    $("status").textContent = "Both specs required";
+    return;
+  }
+  let oldS, newS;
+  try { oldS = parseSpec(oldText); } catch (e) {
+    $("status").className = "err"; $("status").textContent = "Old spec: " + e.message; return;
+  }
+  try { newS = parseSpec(newText); } catch (e) {
+    $("status").className = "err"; $("status").textContent = "New spec: " + e.message; return;
+  }
+  const diff = diffSpecs(oldS, newS);
+  $("status").className = "ok";
+  const total = diff.added.length + diff.removed.length + diff.changed.length;
+  $("status").textContent = total === 0 ? "No changes" : `${total} change${total === 1 ? "" : "s"}`;
+  renderReport(diff);
+});
+
+$("sample-btn").addEventListener("click", () => {
+  $("old-spec").value = SAMPLE_OLD;
+  $("new-spec").value = SAMPLE_NEW;
+  $("status").className = ""; $("status").textContent = "";
+  $("diff-btn").click();
+});
+
+$("clear-btn").addEventListener("click", () => {
+  $("old-spec").value = ""; $("new-spec").value = "";
+  $("status").className = ""; $("status").textContent = "";
+  $("report-container").innerHTML = "";
+});
+
+// Theme
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  $("theme-label").textContent = theme === "dark" ? "Light" : "Dark";
+  $("theme-btn").setAttribute("aria-pressed", String(theme === "dark"));
+  const icon = $("theme-icon");
+  if (theme === "dark") {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>';
+  }
+}
+$("theme-btn").addEventListener("click", () => applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
+if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) applyTheme("dark");
+</script>
+</body>
+</html>
