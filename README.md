@@ -100,6 +100,10 @@ Example output for the bundled sample:
 - Doesn't dive into nested schema diffs (request/response body shape changes beyond presence). For schema-level diffing, look at `oasdiff` or `openapi-diff`.
 - Doesn't audit for spec validity. If your specs aren't valid OpenAPI, results are undefined.
 
+## More
+
+Part of a catalog of single-file browser tools and plain-language references, all MIT licensed and dependency-free: [0xelitesystem.github.io](https://0xelitesystem.github.io/). Built by [elitesystem.ai](https://elitesystem.ai).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
