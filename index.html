@@ -446,7 +446,7 @@ function diffParams(oldP, newP) {
       if (oType && nType && oType !== nType) {
         changes.push({
           kind: "param type changed",
-          text: `${where} param <code>${escapeHtml(name)}</code> type: <code>${escapeHtml(oType)}</code> → <code>${escapeHtml(nType)}</code>`,
+          text: `${where} param <code>${escapeHtml(name)}</code> type: <code>${escapeHtml(oType)}</code> -> <code>${escapeHtml(nType)}</code>`,
           breaking: true
         });
       }
