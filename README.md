@@ -4,13 +4,13 @@ Paste two OpenAPI specs, get a structured changelog: added, removed, changed, br
 
 **Live demo:** https://0xelitesystem.github.io/api-changelog-rss/
 
-## Why
+## Why this exists
 
 Every API team that updates a spec needs to communicate what changed to consumers. Most teams either skip this entirely (bad) or maintain it by hand (slow and error-prone). This tool reads the structural changes and produces the changelog automatically.
 
-The repo name says "RSS" because that was the original ambition (auto-watch a spec URL and emit a feed); the simpler tool ships first. RSS-from-URL would require a backend fetcher; this in-browser version covers the manual diff use case.
+The repo name says "RSS" because that was the original ambition (auto-watch a spec URL and emit a feed); the simpler tool ships first. RSS-from-URL would require a backend fetcher; this in-browser version covers the manual diff use case. It is one HTML file with no tracking and no network calls, MIT licensed.
 
-## Use it
+## Use
 
 Open `index.html` in any browser. Or visit `https://0xelitesystem.github.io/api-changelog-rss/` once Pages is enabled.
 
@@ -99,6 +99,23 @@ Example output for the bundled sample:
 - Doesn't handle OpenAPI 2.0 (Swagger). 3.x only.
 - Doesn't dive into nested schema diffs (request/response body shape changes beyond presence). For schema-level diffing, look at `oasdiff` or `openapi-diff`.
 - Doesn't audit for spec validity. If your specs aren't valid OpenAPI, results are undefined.
+
+## Privacy
+
+Both specs are parsed and compared in your browser. Nothing is uploaded, and the page makes no network requests and has no analytics. Copy markdown writes the changelog to your clipboard only when you click it. The only thing the page stores is your light or dark theme choice, in localStorage under the key `theme`.
+
+## Run locally
+
+```
+git clone https://github.com/0xelitesystem/api-changelog-rss
+cd api-changelog-rss
+```
+
+Open `index.html` in any modern browser, or serve the folder with `python -m http.server 8000` and visit http://localhost:8000/.
+
+## Build
+
+No build step. The whole tool is one `index.html` file with inline CSS and JavaScript.
 
 ## More
 
